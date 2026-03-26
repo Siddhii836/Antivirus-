@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PackBack | Admin Dashboard</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar"><div class="container nav"><a class="brand" href="/">♻️ PackBack Admin</a><div class="nav-links"><button class="btn secondary" onclick="PackBack.logout()">Logout</button></div></div></header>
+  <main class="container section">
+    <h2>Admin Dashboard</h2>
+    <p id="sessionUser" class="small"></p>
+
+    <section class="grid grid-3" id="metrics"></section>
+
+    <section class="section grid grid-2">
+      <article class="card">
+        <h3>Pending Verification</h3>
+        <table class="table"><thead><tr><th>ID</th><th>Type</th><th>Area</th><th>Status</th><th>Action</th></tr></thead><tbody id="pending"></tbody></table>
+      </article>
+      <article class="card">
+        <h3>Reward Points Management</h3>
+        <form id="pointsForm">
+          <label>Packaging Type</label>
+          <select name="packagingType"><option value="cardboard">Cardboard</option><option value="plastic">Plastic</option><option value="mixed">Mixed</option></select>
+          <label>Points</label><input name="points" type="number" min="1" value="10" />
+          <button class="btn" type="submit">Update Reward Rule</button>
+        </form>
+      </article>
+    </section>
+
+    <section class="card">
+      <h3>Area-wise Analytics</h3>
+      <table class="table"><thead><tr><th>Area</th><th>Total Requests</th><th>Completed</th></tr></thead><tbody id="areas"></tbody></table>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+  <script>
+    const admin = PackBack.getSession();
+    if (!admin || admin.role !== 'admin') window.location.href = '/login.html';
+    PackBack.setUserBadge();
+
+    async function load() {
+      const data = await PackBack.api('/admin/overview');
+      metrics.innerHTML = `
+        <div class="card"><p class="small">Total Waste Collected</p><p class="kpi">${data.metrics.totalWasteCollected} kg</p></div>
+        <div class="card"><p class="small">Total Requests</p><p class="kpi">${data.metrics.totalRequests}</p></div>
+        <div class="card"><p class="small">Participation Rate</p><p class="kpi">${data.metrics.participationRate}%</p></div>
+      `;
+
+      pending.innerHTML = data.pendingApprovals.map(r => `
+        <tr>
+          <td>${r.id}</td><td>${r.packagingType}</td><td>${r.area}</td><td><span class="badge ${r.status}">${r.status}</span></td>
+          <td><button class="btn success" onclick="decide('${r.id}','approved')">Approve</button> <button class="btn danger" onclick="decide('${r.id}','rejected')">Reject</button></td>
+        </tr>
+      `).join('') || '<tr><td colspan="5">No pending requests</td></tr>';
+
+      areas.innerHTML = data.areaStats.map(a => `<tr><td>${a.area}</td><td>${a.requests}</td><td>${a.completed}</td></tr>`).join('');
+    }
+
+    async function decide(id, decision) {
+      await PackBack.api(`/admin/requests/${id}`, { method: 'PATCH', body: JSON.stringify({ decision }) });
+      load();
+    }
+
+    pointsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = Object.fromEntries(new FormData(pointsForm).entries());
+      await PackBack.api('/admin/rewards', { method: 'PATCH', body: JSON.stringify(payload) });
+      alert('Reward rule updated.');
+    });
+
+    load();
+  </script>
+</body>
+</html>

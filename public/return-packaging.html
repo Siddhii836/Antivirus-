@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PackBack | Return Packaging</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar"><div class="container nav"><a class="brand" href="/user-dashboard.html">♻️ PackBack</a><div class="nav-links"><a class="btn secondary" href="/user-dashboard.html">Dashboard</a></div></div></header>
+  <main class="container section grid grid-2">
+    <section class="card">
+      <h2>Return Packaging</h2>
+      <form id="returnForm">
+        <label>Packaging Image URL (simulated upload)</label>
+        <input name="imageUrl" placeholder="https://..." />
+        <label>Packaging Type</label>
+        <select name="packagingType" required><option value="cardboard">Cardboard</option><option value="plastic">Plastic</option><option value="mixed">Mixed</option></select>
+        <label>Source Platform</label>
+        <select name="sourcePlatform" required><option>Amazon</option><option>Flipkart</option><option>Other</option></select>
+        <label>Collection Mode</label>
+        <select name="mode" id="mode"><option value="pickup">Pickup Request</option><option value="dropoff">Drop-off Point</option><option value="bulk">Society Bulk Collection</option></select>
+
+        <div id="pickupFields">
+          <label>Pickup Date</label><input type="date" name="pickupDate" />
+          <label>Pickup Time</label><input type="time" name="pickupTime" />
+        </div>
+
+        <div id="dropoffFields" style="display:none;">
+          <label>Nearby Drop-Off Point</label>
+          <select name="dropOffPointId" id="dropSelect"></select>
+        </div>
+
+        <label>Area</label><input name="area" placeholder="Mira Road East" />
+        <label>Society</label><input name="society" placeholder="Green Heights" />
+        <button class="btn success" type="submit">Submit Return Request</button>
+      </form>
+      <p id="msg" class="small"></p>
+    </section>
+
+    <section class="card">
+      <h3>Pickup & Logistics Notes</h3>
+      <ul class="small">
+        <li>Pickup requests are auto-assigned to nearest collector based on area.</li>
+        <li>Drop-off requests are validated by admin before point crediting.</li>
+        <li>Bulk mode supports society-level aggregated packaging collection drives.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+  <script>
+    const user = PackBack.getSession();
+    if (!user || user.role !== 'user') window.location.href = '/login.html';
+
+    mode.addEventListener('change', () => {
+      const isPickup = mode.value === 'pickup' || mode.value === 'bulk';
+      pickupFields.style.display = isPickup ? 'block' : 'none';
+      dropoffFields.style.display = mode.value === 'dropoff' ? 'block' : 'none';
+    });
+
+    (async function loadDropoffs() {
+      const points = await PackBack.api('/dropoff-points');
+      dropSelect.innerHTML = points.map(p => `<option value="${p.id}">${p.name} (${p.area} | ${p.hours})</option>`).join('');
+    })();
+
+    returnForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = Object.fromEntries(new FormData(returnForm).entries());
+      if (form.mode === 'bulk') form.mode = 'pickup';
+      try {
+        const data = await PackBack.api('/returns', { method: 'POST', body: JSON.stringify(form) });
+        msg.textContent = `Request submitted with status: ${data.request.status}`;
+      } catch (err) { msg.textContent = err.message; }
+    });
+  </script>
+</body>
+</html>
