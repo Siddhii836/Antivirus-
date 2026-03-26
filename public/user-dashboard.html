@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PackBack | User Dashboard</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar"><div class="container nav"><a class="brand" href="/">♻️ PackBack</a><div class="nav-links"><a href="/return-packaging.html" class="btn">Return Packaging</a><button class="btn secondary" onclick="PackBack.logout()">Logout</button></div></div></header>
+  <main class="container section">
+    <h2>User Dashboard</h2>
+    <p id="sessionUser" class="small"></p>
+    <section class="grid grid-3" id="kpis"></section>
+
+    <section class="section grid grid-2">
+      <article class="card">
+        <h3>Recycling History</h3>
+        <table class="table"><thead><tr><th>Date</th><th>Type</th><th>Source</th><th>Status</th><th>Points</th></tr></thead><tbody id="history"></tbody></table>
+      </article>
+      <article class="card">
+        <h3>Leaderboard (Top Users/Societies)</h3>
+        <table class="table"><thead><tr><th>User</th><th>Society</th><th>Points</th></tr></thead><tbody id="leaderboard"></tbody></table>
+      </article>
+    </section>
+
+    <section class="card">
+      <h3>Redeem Rewards (UI Simulation)</h3>
+      <div id="rewards" class="grid grid-3"></div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+  <script>
+    const user = PackBack.getSession();
+    if (!user || user.role !== 'user') window.location.href = '/login.html';
+    PackBack.setUserBadge();
+
+    (async function init() {
+      const data = await PackBack.api(`/users/${user.id}/dashboard`);
+      kpis.innerHTML = `
+        <div class="card"><p class="small">Total Reward Points</p><p class="kpi">${data.user.points}</p></div>
+        <div class="card"><p class="small">Packaging Returned</p><p class="kpi">${data.history.length} requests</p></div>
+        <div class="card"><p class="small">Environmental Impact</p><p class="kpi">${data.totalWasteKg} kg diverted</p></div>
+      `;
+
+      history.innerHTML = data.history.map(r => `
+        <tr>
+          <td>${new Date(r.createdAt).toLocaleDateString()}</td>
+          <td>${r.packagingType}</td>
+          <td>${r.sourcePlatform}</td>
+          <td><span class="badge ${r.status}">${r.status}</span></td>
+          <td>${r.pointsAwarded || 0}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="5">No returns yet.</td></tr>';
+
+      leaderboard.innerHTML = data.leaderboard.map(l => `<tr><td>${l.name}</td><td>${l.society}</td><td>${l.points}</td></tr>`).join('');
+
+      rewards.innerHTML = data.rewardsCatalog.map(r => `
+        <div class="card">
+          <h4>${r.title}</h4>
+          <p class="small">Cost: ${r.cost} points</p>
+          <button class="btn" onclick="redeem('${r.id}')">Redeem</button>
+        </div>
+      `).join('');
+    })();
+
+    async function redeem(rewardId) {
+      try {
+        await PackBack.api('/redeem', { method: 'POST', body: JSON.stringify({ userId: user.id, rewardId }) });
+        alert('Reward redeemed successfully!');
+        location.reload();
+      } catch (err) { alert(err.message); }
+    }
+  </script>
+</body>
+</html>

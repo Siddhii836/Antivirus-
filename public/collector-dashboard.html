@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PackBack | Collector Dashboard</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar"><div class="container nav"><a href="/" class="brand">♻️ PackBack Collector</a><div class="nav-links"><button class="btn secondary" onclick="PackBack.logout()">Logout</button></div></div></header>
+  <main class="container section">
+    <h2>Collector Dashboard</h2>
+    <p id="sessionUser" class="small"></p>
+    <section id="summary" class="grid grid-3"></section>
+    <section class="card section">
+      <h3>Assigned Pickup Requests</h3>
+      <table class="table">
+        <thead><tr><th>User</th><th>Type</th><th>Date/Time</th><th>Area</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+  <script>
+    const collector = PackBack.getSession();
+    if (!collector || collector.role !== 'collector') window.location.href = '/login.html';
+    PackBack.setUserBadge();
+
+    async function load() {
+      const data = await PackBack.api(`/collectors/${collector.id}/requests`);
+      summary.innerHTML = `
+        <div class="card"><p class="small">Assigned</p><p class="kpi">${data.requests.length}</p></div>
+        <div class="card"><p class="small">Completed Today</p><p class="kpi">${data.summary.completedToday}</p></div>
+        <div class="card"><p class="small">Area</p><p class="kpi">${data.collector.area}</p></div>
+      `;
+
+      rows.innerHTML = data.requests.map(r => `
+        <tr>
+          <td>${r.userId}</td><td>${r.packagingType}</td><td>${r.pickupDate || '-'} ${r.pickupTime || ''}</td>
+          <td>${r.area}</td><td><span class="badge ${r.status}">${r.status}</span></td>
+          <td>
+            <button class="btn warn" onclick="act('${r.id}','accepted')">Accept</button>
+            <button class="btn danger" onclick="act('${r.id}','rejected')">Reject</button>
+            <button class="btn success" onclick="act('${r.id}','completed')">Complete</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="6">No assigned requests yet.</td></tr>';
+    }
+
+    async function act(id, action) {
+      try {
+        await PackBack.api(`/collectors/${collector.id}/requests/${id}`, { method: 'PATCH', body: JSON.stringify({ action }) });
+        load();
+      } catch (err) { alert(err.message); }
+    }
+
+    load();
+  </script>
+</body>
+</html>

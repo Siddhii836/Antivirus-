@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PackBack | Login</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container nav">
+      <a href="/" class="brand">♻️ PackBack</a>
+      <div id="sessionUser" class="small">Guest</div>
+    </div>
+  </header>
+
+  <main class="container section grid grid-2">
+    <section class="card">
+      <h2>Login</h2>
+      <form id="loginForm">
+        <label>Email</label>
+        <input name="email" type="email" required />
+        <label>Password</label>
+        <input name="password" type="password" required />
+        <label>Portal</label>
+        <select name="role">
+          <option value="user">User</option>
+          <option value="collector">Collector</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button class="btn" type="submit">Login</button>
+        <button class="btn secondary" type="button" id="googleLogin">Continue with Google (Simulated)</button>
+      </form>
+      <p class="small">Demo users: priya@example.com / collector@example.com / admin@example.com with password <b>password123</b>.</p>
+    </section>
+
+    <section class="card">
+      <h2>Signup</h2>
+      <form id="signupForm">
+        <label>Name</label><input name="name" required />
+        <label>Email</label><input name="email" type="email" required />
+        <label>Password</label><input name="password" type="password" required />
+        <label>Area</label><input name="area" placeholder="Mira Road East" />
+        <label>Society</label><input name="society" placeholder="Shanti Garden" />
+        <button class="btn success" type="submit">Create Account</button>
+      </form>
+      <p id="signupMsg" class="small"></p>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+  <script>
+    PackBack.setUserBadge();
+
+    const routeByRole = (role) => {
+      if (role === 'collector') return '/collector-dashboard.html';
+      if (role === 'admin') return '/admin-dashboard.html';
+      return '/user-dashboard.html';
+    };
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = new FormData(loginForm);
+      try {
+        const data = await PackBack.api('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify(Object.fromEntries(form.entries())),
+        });
+        PackBack.saveSession(data.user);
+        window.location.href = routeByRole(data.user.role);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+
+    signupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = new FormData(signupForm);
+      try {
+        await PackBack.api('/auth/signup', { method: 'POST', body: JSON.stringify(Object.fromEntries(form.entries())) });
+        signupMsg.textContent = 'Signup successful. Please login from left panel.';
+      } catch (err) {
+        signupMsg.textContent = err.message;
+      }
+    });
+
+    googleLogin.addEventListener('click', async () => {
+      const email = prompt('Enter Gmail (simulation):', 'newuser@gmail.com');
+      if (!email) return;
+      const name = email.split('@')[0];
+      try {
+        const data = await PackBack.api('/auth/google', { method: 'POST', body: JSON.stringify({ email, name }) });
+        PackBack.saveSession(data.user);
+        window.location.href = '/user-dashboard.html';
+      } catch (err) { alert(err.message); }
+    });
+  </script>
+</body>
+</html>
